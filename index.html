@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="タスク管理">
+<title>タスク管理</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F7F6F3;
+    --surface: #FFFFFF;
+    --surface2: #F0EEE9;
+    --border: #E2DFD8;
+    --border2: #CBC8C0;
+    --text: #1A1917;
+    --text2: #6B6860;
+    --text3: #9E9B94;
+    --accent: #2D6A4F;
+    --accent-light: #E8F5EF;
+    --accent2: #1B4332;
+    --danger: #C0392B;
+    --danger-light: #FDEDEB;
+    --amber: #D68910;
+    --amber-light: #FEF9E7;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+    --font: 'Noto Sans JP', sans-serif;
+    --mono: 'DM Mono', monospace;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
+  
+  /* Nav */
+  .nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--surface); border-top: 1px solid var(--border); display: flex; z-index: 100; padding-bottom: var(--safe-bottom); }
+  .nav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 0 8px; cursor: pointer; color: var(--text3); font-size: 10px; font-family: var(--font); background: none; border: none; transition: color 0.15s; }
+  .nav-btn.active { color: var(--accent); }
+  .nav-btn svg { width: 22px; height: 22px; }
+  
+  /* Pages */
+  .page { display: none; padding: 16px 16px calc(70px + var(--safe-bottom)); min-height: 100vh; }
+  .page.active { display: block; }
+  
+  /* Header */
+  .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; padding-top: 8px; }
+  .page-title { font-size: 20px; font-weight: 600; color: var(--text); }
+  
+  /* Date nav */
+  .date-nav { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); padding: 12px 16px; margin-bottom: 16px; box-shadow: var(--shadow); }
+  .date-nav-row { display: flex; align-items: center; justify-content: space-between; }
+  .date-display { font-size: 16px; font-weight: 600; color: var(--text); text-align: center; flex: 1; }
+  .date-sub { font-size: 12px; color: var(--text3); text-align: center; margin-top: 2px; }
+  .date-btn { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface2); color: var(--text2); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s; flex-shrink: 0; }
+  .date-btn:active { background: var(--border); transform: scale(0.95); }
+  .today-btn { font-size: 12px; font-weight: 500; color: var(--accent); background: var(--accent-light); border: 1px solid rgba(45,106,79,0.2); border-radius: 20px; padding: 6px 14px; cursor: pointer; white-space: nowrap; margin-left: 8px; }
+  .today-btn:active { opacity: 0.7; }
+  
+  /* Date picker */
+  .date-input { border: none; background: transparent; color: transparent; width: 0; height: 0; position: absolute; }
+  
+  /* Task table */
+  .task-card { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; box-shadow: var(--shadow); margin-bottom: 12px; }
+  .task-table { width: 100%; border-collapse: collapse; }
+  .task-table th { font-size: 11px; font-weight: 500; color: var(--text3); padding: 8px 10px; background: var(--surface2); text-align: center; border-bottom: 1px solid var(--border); }
+  .task-table th:first-child { text-align: left; width: 40%; }
+  .task-table td { padding: 0; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .task-table tr:last-child td { border-bottom: none; }
+  .task-table td input[type="text"] { width: 100%; border: none; outline: none; font-family: var(--font); font-size: 13px; color: var(--text); padding: 10px 10px; background: transparent; }
+  .task-table td input[type="text"]::placeholder { color: var(--text3); }
+  .task-table td input[type="text"]:focus { background: rgba(45,106,79,0.04); }
+  .time-select { border: none; outline: none; font-family: var(--font); font-size: 13px; color: var(--text); padding: 10px 4px; background: transparent; width: 100%; text-align: center; cursor: pointer; -webkit-appearance: none; }
+  .time-select:focus { background: rgba(45,106,79,0.04); }
+  .check-cell { text-align: center; padding: 8px; }
+  .check-cell input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
+  .memo-cell input[type="text"] { font-size: 12px; color: var(--text2); }
+  .del-cell { width: 32px; text-align: center; }
+  .del-btn { width: 24px; height: 24px; border: none; background: none; color: var(--text3); cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: all 0.15s; }
+  .del-btn:active { background: var(--danger-light); color: var(--danger); }
+  
+  /* Summary row */
+  .summary-row { background: var(--surface2); }
+  .summary-row td { padding: 10px; font-size: 13px; font-weight: 600; color: var(--text2); text-align: center; }
+  .summary-row td:first-child { text-align: left; color: var(--text3); font-weight: 500; }
+  
+  /* Buttons */
+  .btn-row { display: flex; gap: 8px; margin-bottom: 12px; }
+  .btn-primary { flex: 1; background: var(--accent); color: white; border: none; border-radius: var(--radius-sm); padding: 14px; font-family: var(--font); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+  .btn-primary:active { transform: scale(0.98); opacity: 0.9; }
+  .btn-secondary { background: var(--surface); color: var(--text2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px 18px; font-family: var(--font); font-size: 14px; cursor: pointer; transition: all 0.15s; }
+  .btn-secondary:active { background: var(--surface2); }
+  .add-row-btn { width: 100%; background: var(--surface); border: 1px dashed var(--border2); border-radius: var(--radius-sm); padding: 12px; font-family: var(--font); font-size: 13px; color: var(--text3); cursor: pointer; transition: all 0.15s; margin-bottom: 12px; }
+  .add-row-btn:active { background: var(--accent-light); color: var(--accent); border-color: var(--accent); }
+  
+  /* Toast */
+  .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-80px); background: var(--text); color: white; padding: 10px 20px; border-radius: 20px; font-size: 13px; font-weight: 500; z-index: 1000; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); white-space: nowrap; }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.success { background: var(--accent); }
+  .toast.error { background: var(--danger); }
+  
+  /* Stats page */
+  .range-card { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); padding: 14px 16px; margin-bottom: 12px; box-shadow: var(--shadow); }
+  .range-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .range-label { font-size: 12px; color: var(--text3); white-space: nowrap; }
+  .date-input-field { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 10px; font-family: var(--mono); font-size: 13px; color: var(--text); background: var(--surface2); flex: 1; min-width: 120px; }
+  .date-input-field:focus { outline: none; border-color: var(--accent); }
+  .stats-table { width: 100%; border-collapse: collapse; }
+  .stats-table th { font-size: 11px; font-weight: 500; color: var(--text3); padding: 8px 10px; background: var(--surface2); text-align: center; border-bottom: 1px solid var(--border); }
+  .stats-table th:first-child { text-align: left; }
+  .stats-table td { padding: 10px; font-size: 13px; border-bottom: 1px solid var(--border); text-align: center; color: var(--text); }
+  .stats-table td:first-child { text-align: left; font-weight: 500; }
+  .stats-table tr:last-child td { border-bottom: none; }
+  .detail-check { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
+  .stats-total { background: var(--surface2); font-weight: 600; }
+  .chip { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 20px; background: var(--accent-light); color: var(--accent); font-weight: 500; }
+  
+  /* Detail page */
+  .detail-header-card { background: var(--accent-light); border: 1px solid rgba(45,106,79,0.2); border-radius: var(--radius); padding: 12px 16px; margin-bottom: 12px; }
+  .detail-meta { font-size: 12px; color: var(--accent2); line-height: 1.8; }
+  .detail-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .detail-table th { font-size: 10px; font-weight: 500; color: var(--text3); padding: 6px 8px; background: var(--surface2); text-align: center; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .detail-table th:first-child { text-align: left; }
+  .detail-table td { padding: 8px; border-bottom: 1px solid var(--border); text-align: center; color: var(--text); font-size: 12px; }
+  .detail-table td:first-child { text-align: left; font-family: var(--mono); font-size: 11px; }
+  .detail-table tr:last-child td { border-bottom: none; }
+  
+  /* Download buttons */
+  .dl-row { display: flex; gap: 8px; margin-top: 12px; }
+  .dl-btn { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; font-family: var(--font); font-size: 12px; color: var(--text2); cursor: pointer; text-align: center; font-weight: 500; transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .dl-btn:active { background: var(--surface2); }
+  
+  /* Empty state */
+  .empty { text-align: center; padding: 40px 20px; color: var(--text3); }
+  .empty-icon { font-size: 40px; margin-bottom: 12px; }
+  .empty-text { font-size: 14px; }
+  
+  /* Section label */
+  .section-label { font-size: 11px; font-weight: 500; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; margin-top: 4px; }
+  
+  /* Streak badge */
+  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .stat-mini { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; }
+  .stat-mini-label { font-size: 11px; color: var(--text3); margin-bottom: 4px; }
+  .stat-mini-value { font-size: 22px; font-weight: 600; color: var(--text); font-family: var(--mono); }
+  .stat-mini-unit { font-size: 12px; color: var(--text3); font-weight: 400; }
+  
+  /* Time select inline */
+  .time-cell { position: relative; }
+  .time-cell select { width: 100%; }
+  
+  /* Hint text */
+  .hint { font-size: 11px; color: var(--text3); margin-top: 6px; }
+
+  /* Task memo expand */
+  .memo-toggle { width: 28px; height: 28px; border: none; background: none; color: var(--text3); cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; border-radius: 6px; transition: all 0.15s; position: relative; }
+  .memo-toggle:active { background: var(--surface2); }
+  .memo-toggle.has-memo { color: var(--accent); }
+  .memo-toggle.has-memo::after { content: ''; position: absolute; top: 4px; right: 4px; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
+  .memo-expand-row { display: none; }
+  .memo-expand-row.open { display: table-row; }
+  .memo-expand-td { padding: 0 10px 10px 10px !important; background: var(--accent-light); border-bottom: 1px solid rgba(45,106,79,0.12) !important; }
+  .memo-expand-input { width: 100%; border: 1px solid rgba(45,106,79,0.25); border-radius: 8px; padding: 8px 10px; font-family: var(--font); font-size: 13px; color: var(--text); background: white; outline: none; resize: none; }
+  .memo-expand-input:focus { border-color: var(--accent); }
+  .memo-expand-label { font-size: 10px; color: var(--accent2); font-weight: 500; margin-bottom: 5px; margin-top: 8px; display: block; }
+</style>
+</head>
+<body>
+
+<div id="page-main" class="page active">
+  <div class="page-header">
+    <div class="page-title">タスク記録</div>
+  </div>
+  
+  <div class="date-nav">
+    <div class="date-nav-row">
+      <button class="date-btn" onclick="changeDate(-1)">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>
+      </button>
+      <div style="flex:1; text-align:center; cursor:pointer;" onclick="openDatePicker()">
+        <div class="date-display" id="date-display">2026/04/22</div>
+        <div class="date-sub" id="date-sub">水曜日</div>
+      </div>
+      <input type="date" id="date-picker" class="date-input" onchange="onDatePicked(this.value)">
+      <button class="date-btn" onclick="changeDate(1)">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9,6 15,12 9,18"/></svg>
+      </button>
+      <button class="today-btn" onclick="goToday()">今日</button>
+    </div>
+  </div>
+  
+  <div class="task-card">
+    <table class="task-table">
+      <thead>
+        <tr>
+          <th>タスク</th>
+          <th>予定</th>
+          <th>実績</th>
+          <th>継続</th>
+          <th>memo</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="task-tbody"></tbody>
+      <tfoot>
+        <tr class="summary-row">
+          <td>合計</td>
+          <td id="sum-plan">—</td>
+          <td id="sum-actual">—</td>
+          <td colspan="3"></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+  
+  <button class="add-row-btn" onclick="addRow()">＋ タスクを追加</button>
+  
+  <div class="btn-row">
+    <button class="btn-primary" onclick="saveRecords()">💾 保存</button>
+  </div>
+  
+  <div class="section-label" style="margin-top:4px;">メモ（本日分）</div>
+  <div class="task-card" style="padding:10px 12px;">
+    <input type="text" id="day-memo" placeholder="メモを入力..." style="width:100%;border:none;outline:none;font-family:var(--font);font-size:13px;color:var(--text);background:transparent;" />
+  </div>
+</div>
+
+<div id="page-stats" class="page">
+  <div class="page-header">
+    <div class="page-title">統計</div>
+  </div>
+  
+  <div class="range-card">
+    <div class="range-row">
+      <span class="range-label">From</span>
+      <input type="date" class="date-input-field" id="stats-from">
+      <span class="range-label">To</span>
+      <input type="date" class="date-input-field" id="stats-to">
+    </div>
+    <div style="margin-top:10px;">
+      <button class="btn-primary" onclick="loadStats()" style="padding:10px;">表示</button>
+    </div>
+  </div>
+  
+  <div id="stats-summary-grid" class="stats-grid" style="display:none;"></div>
+  
+  <div id="stats-result" class="task-card" style="display:none;overflow:hidden;">
+    <table class="stats-table" id="stats-table"></table>
+  </div>
+  
+  <div id="stats-actions" style="display:none;">
+    <div class="dl-row">
+      <button class="dl-btn" onclick="downloadCSV()">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        CSVダウンロード
+      </button>
+      <button class="dl-btn" onclick="downloadJSON()">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        JSONダウンロード
+      </button>
+    </div>
+    <button class="btn-secondary" style="width:100%;margin-top:8px;" onclick="showDetail()">詳細表示（チェック済みタスク）</button>
+  </div>
+</div>
+
+<div id="page-detail" class="page">
+  <div class="page-header">
+    <div>
+      <div class="page-title">詳細</div>
+    </div>
+    <button class="btn-secondary" style="padding:8px 14px;font-size:13px;" onclick="switchPage('stats')">← 戻る</button>
+  </div>
+  
+  <div class="detail-header-card" id="detail-header"></div>
+  
+  <div class="task-card" style="overflow:hidden;">
+    <table class="detail-table" id="detail-table"></table>
+  </div>
+</div>
+
+<nav class="nav">
+  <button class="nav-btn active" id="nav-main" onclick="switchPage('main')">
+    <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+    記録
+  </button>
+  <button class="nav-btn" id="nav-stats" onclick="switchPage('stats')">
+    <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+    統計
+  </button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const TIME_OPTIONS = ['0.25','0.5','0.75','1','1.5','2','3','4','5','6','7','8'];
+const DAYS_JA = ['日','月','火','水','木','金','土'];
+
+let currentDate = todayStr();
+let db;
+let statsData = [];
+let checkedTasks = [];
+
+function todayStr() {
+  const d = new Date();
+  return d.toISOString().split('T')[0];
+}
+
+function formatDateDisplay(str) {
+  const [y,m,d] = str.split('-');
+  const dt = new Date(str + 'T00:00:00');
+  const day = DAYS_JA[dt.getDay()];
+  return { main: `${y}/${m}/${d}`, sub: `${day}曜日` };
+}
+
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + type;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// IndexedDB
+function initDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('TaskManagerDB', 2);
+    req.onupgradeneeded = e => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains('records')) {
+        const s = d.createObjectStore('records', { keyPath: 'id', autoIncrement: true });
+        s.createIndex('date', 'date', { unique: false });
+      }
+      if (!d.objectStoreNames.contains('daymemo')) {
+        d.createObjectStore('daymemo', { keyPath: 'date' });
+      }
+    };
+    req.onsuccess = e => { db = e.target.result; resolve(); };
+    req.onerror = reject;
+  });
+}
+
+function dbGetByDate(date) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('records', 'readonly');
+    const idx = tx.objectStore('records').index('date');
+    const req = idx.getAll(date);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = reject;
+  });
+}
+
+function dbDeleteByDate(date) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('records', 'readwrite');
+    const idx = tx.objectStore('records').index('date');
+    const req = idx.getAllKeys(date);
+    req.onsuccess = () => {
+      const keys = req.result;
+      let done = 0;
+      if (keys.length === 0) { resolve(); return; }
+      keys.forEach(k => {
+        const dr = tx.objectStore('records').delete(k);
+        dr.onsuccess = () => { done++; if (done === keys.length) resolve(); };
+      });
+    };
+    req.onerror = reject;
+  });
+}
+
+function dbPutAll(records) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('records', 'readwrite');
+    const st = tx.objectStore('records');
+    records.forEach(r => st.add(r));
+    tx.oncomplete = resolve;
+    tx.onerror = reject;
+  });
+}
+
+function dbGetMemo(date) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('daymemo', 'readonly');
+    const req = tx.objectStore('daymemo').get(date);
+    req.onsuccess = () => resolve(req.result ? req.result.memo : '');
+    req.onerror = reject;
+  });
+}
+
+function dbPutMemo(date, memo) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('daymemo', 'readwrite');
+    const req = tx.objectStore('daymemo').put({ date, memo });
+    req.onsuccess = resolve;
+    req.onerror = reject;
+  });
+}
+
+function dbGetRange(from, to) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('records', 'readonly');
+    const idx = tx.objectStore('records').index('date');
+    const range = IDBKeyRange.bound(from, to);
+    const req = idx.getAll(range);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = reject;
+  });
+}
+
+function dbGetPreviousContinued(date) {
+  return new Promise(async (resolve, reject) => {
+    const tx = db.transaction('records', 'readonly');
+    const idx = tx.objectStore('records').index('date');
+    const range = IDBKeyRange.upperBound(date, true);
+    const req = idx.openCursor(range, 'prev');
+    let found = null;
+    req.onsuccess = e => {
+      const cursor = e.target.result;
+      if (cursor && !found) {
+        found = cursor.value.date;
+        resolve(found);
+      } else if (!found) {
+        resolve(null);
+      }
+    };
+    req.onerror = reject;
+  });
+}
+
+// Main page
+function buildTimeSelect(val) {
+  let opts = TIME_OPTIONS.map(v => `<option value="${v}" ${v===val?'selected':''}>${v}</option>`).join('');
+  if (val && !TIME_OPTIONS.includes(String(val))) {
+    opts += `<option value="${val}" selected>${val}</option>`;
+  }
+  return `<select class="time-select" onchange="updateSums()">${opts}<option value="">—</option></select>`;
+}
+
+function addRow(data) {
+  const d = data || { task:'', planHours:'', actualHours:'', continued: false, memo:'' };
+  const tbody = document.getElementById('task-tbody');
+  const rowId = 'row-' + Date.now() + '-' + Math.random().toString(36).slice(2,7);
+  
+  const tr = document.createElement('tr');
+  tr.dataset.rowId = rowId;
+  tr.innerHTML = `
+    <td><input type="text" placeholder="タスク名" value="${(d.task||'').replace(/"/g,'&quot;')}" oninput="onTaskInput(this)"></td>
+    <td class="time-cell">${buildTimeSelect(d.planHours)}</td>
+    <td class="time-cell">${buildTimeSelect(d.actualHours)}</td>
+    <td class="check-cell"><input type="checkbox" ${d.continued?'checked':''}></td>
+    <td class="check-cell"><button class="memo-toggle ${d.memo?'has-memo':''}" onclick="toggleMemo('${rowId}')" title="メモ">✎</button></td>
+    <td class="del-cell"><button class="del-btn" onclick="deleteRow(this)">×</button></td>
+  `;
+  tbody.appendChild(tr);
+  
+  // Expandable memo row
+  const memoTr = document.createElement('tr');
+  memoTr.className = 'memo-expand-row' + (d.memo ? ' open' : '');
+  memoTr.dataset.memoFor = rowId;
+  memoTr.innerHTML = `
+    <td class="memo-expand-td" colspan="6">
+      <span class="memo-expand-label">タスクメモ</span>
+      <textarea class="memo-expand-input" rows="2" placeholder="このタスクのメモ...">${d.memo||''}</textarea>
+    </td>
+  `;
+  memoTr.querySelector('textarea').addEventListener('input', () => {
+    const btn = tr.querySelector('.memo-toggle');
+    const hasText = memoTr.querySelector('textarea').value.trim().length > 0;
+    btn.classList.toggle('has-memo', hasText);
+  });
+  tbody.appendChild(memoTr);
+  
+  updateSums();
+}
+
+function deleteRow(btn) {
+  const tr = btn.closest('tr');
+  const rowId = tr.dataset.rowId;
+  // Remove memo row too
+  const memoTr = document.querySelector(`tr[data-memo-for="${rowId}"]`);
+  if (memoTr) memoTr.remove();
+  tr.remove();
+  updateSums();
+}
+
+function toggleMemo(rowId) {
+  const memoTr = document.querySelector(`tr[data-memo-for="${rowId}"]`);
+  if (!memoTr) return;
+  const isOpen = memoTr.classList.toggle('open');
+  if (isOpen) memoTr.querySelector('textarea').focus();
+}
+
+function updateSums() {
+  const rows = document.querySelectorAll('#task-tbody tr[data-row-id]');
+  let sp=0, sa=0, cp=0, ca=0;
+  rows.forEach(r => {
+    const sels = r.querySelectorAll('select');
+    const pv = parseFloat(sels[0]?.value)||0;
+    const av = parseFloat(sels[1]?.value)||0;
+    sp += pv; sa += av;
+    if(pv) cp++; if(av) ca++;
+  });
+  document.getElementById('sum-plan').textContent = cp>0 ? sp : '—';
+  document.getElementById('sum-actual').textContent = ca>0 ? sa : '—';
+}
+
+async function loadDate(date) {
+  currentDate = date;
+  const fmt = formatDateDisplay(date);
+  document.getElementById('date-display').textContent = fmt.main;
+  document.getElementById('date-sub').textContent = fmt.sub;
+  
+  let records = await dbGetByDate(date);
+  const tbody = document.getElementById('task-tbody');
+  tbody.innerHTML = '';
+  
+  if (records.length === 0) {
+    // Load continued tasks from previous day
+    const prevDate = await dbGetPreviousContinued(date);
+    if (prevDate) {
+      const prevRecs = await dbGetByDate(prevDate);
+      const continued = prevRecs.filter(r => r.continued);
+      continued.forEach(r => addRow({ task: r.task, planHours: r.planHours, actualHours: '', continued: true, memo: '' }));
+    }
+    if (tbody.children.length === 0) addRow();
+  } else {
+    records.forEach(r => addRow(r));
+  }
+  
+  const memo = await dbGetMemo(date);
+  document.getElementById('day-memo').value = memo || '';
+  updateSums();
+}
+
+async function saveRecords() {
+  const rows = document.querySelectorAll('#task-tbody tr[data-row-id]');
+  const records = [];
+  rows.forEach(tr => {
+    const rowId = tr.dataset.rowId;
+    const task = tr.querySelector('input[type="text"]').value.trim();
+    const sels = tr.querySelectorAll('select');
+    const plan = sels[0]?.value || '';
+    const actual = sels[1]?.value || '';
+    const cont = tr.querySelector('input[type="checkbox"]').checked;
+    const memoTr = document.querySelector(`tr[data-memo-for="${rowId}"]`);
+    const memo = memoTr ? memoTr.querySelector('textarea').value.trim() : '';
+    if (task || plan || actual) {
+      records.push({ date: currentDate, task, planHours: plan, actualHours: actual, continued: cont, memo });
+    }
+  });
+  
+  await dbDeleteByDate(currentDate);
+  if (records.length > 0) await dbPutAll(records);
+  const memo = document.getElementById('day-memo').value.trim();
+  await dbPutMemo(currentDate, memo);
+  showToast('保存しました ✓');
+}
+
+function changeDate(delta) {
+  const d = new Date(currentDate + 'T00:00:00');
+  d.setDate(d.getDate() + delta);
+  loadDate(d.toISOString().split('T')[0]);
+}
+
+function goToday() { loadDate(todayStr()); }
+
+function openDatePicker() {
+  const picker = document.getElementById('date-picker');
+  picker.value = currentDate;
+  picker.showPicker?.() || picker.click();
+}
+
+function onDatePicked(val) { if(val) loadDate(val); }
+
+function onTaskInput(inp) {
+  // Future: show suggestions from past tasks
+}
+
+// Stats page
+async function loadStats() {
+  const from = document.getElementById('stats-from').value;
+  const to = document.getElementById('stats-to').value;
+  if (!from || !to) { showToast('日付を選択してください','error'); return; }
+  
+  statsData = await dbGetRange(from, to);
+  
+  // Group by task
+  const taskMap = {};
+  statsData.forEach(r => {
+    const key = r.task || '（タスク名なし）';
+    if (!taskMap[key]) taskMap[key] = { task: key, days: new Set(), plan: 0, actual: 0 };
+    taskMap[key].days.add(r.date);
+    taskMap[key].plan += parseFloat(r.planHours)||0;
+    taskMap[key].actual += parseFloat(r.actualHours)||0;
+  });
+  
+  const tasks = Object.values(taskMap).sort((a,b) => b.actual - a.actual);
+  
+  let totalDays = new Set(statsData.map(r => r.date)).size;
+  let totalPlan = tasks.reduce((s,t) => s+t.plan, 0);
+  let totalActual = tasks.reduce((s,t) => s+t.actual, 0);
+  
+  // Summary grid
+  const grid = document.getElementById('stats-summary-grid');
+  grid.style.display = 'grid';
+  grid.innerHTML = `
+    <div class="stat-mini"><div class="stat-mini-label">記録日数</div><div class="stat-mini-value">${totalDays}<span class="stat-mini-unit"> 日</span></div></div>
+    <div class="stat-mini"><div class="stat-mini-label">タスク種類</div><div class="stat-mini-value">${tasks.length}<span class="stat-mini-unit"> 種</span></div></div>
+    <div class="stat-mini"><div class="stat-mini-label">予定合計</div><div class="stat-mini-value">${totalPlan.toFixed(1)}<span class="stat-mini-unit"> h</span></div></div>
+    <div class="stat-mini"><div class="stat-mini-label">実績合計</div><div class="stat-mini-value">${totalActual.toFixed(1)}<span class="stat-mini-unit"> h</span></div></div>
+  `;
+  
+  // Stats table
+  const tbl = document.getElementById('stats-table');
+  tbl.innerHTML = `
+    <thead><tr>
+      <th>タスク</th>
+      <th>日数</th>
+      <th>予定h</th>
+      <th>実績h</th>
+      <th>詳細</th>
+    </tr></thead>
+    <tbody>
+    ${tasks.map(t => `<tr>
+      <td>${t.task}</td>
+      <td>${t.days.size}</td>
+      <td>${t.plan.toFixed(1)}</td>
+      <td>${t.actual.toFixed(1)}</td>
+      <td><input type="checkbox" class="detail-check" data-task="${t.task}"></td>
+    </tr>`).join('')}
+    </tbody>
+    <tfoot>
+    <tr class="stats-total"><td>合計</td><td>${totalDays}</td><td>${totalPlan.toFixed(1)}</td><td>${totalActual.toFixed(1)}</td><td></td></tr>
+    </tfoot>
+  `;
+  
+  document.getElementById('stats-result').style.display = 'block';
+  document.getElementById('stats-actions').style.display = 'block';
+}
+
+function showDetail() {
+  checkedTasks = [];
+  document.querySelectorAll('.detail-check:checked').forEach(cb => {
+    checkedTasks.push(cb.dataset.task);
+  });
+  if (checkedTasks.length === 0) { showToast('タスクを選択してください','error'); return; }
+  
+  const from = document.getElementById('stats-from').value;
+  const to = document.getElementById('stats-to').value;
+  
+  const filtered = statsData.filter(r => checkedTasks.includes(r.task));
+  filtered.sort((a,b) => a.date.localeCompare(b.date));
+  
+  const totalPlan = filtered.reduce((s,r) => s + (parseFloat(r.planHours)||0), 0);
+  const totalActual = filtered.reduce((s,r) => s + (parseFloat(r.actualHours)||0), 0);
+  
+  document.getElementById('detail-header').innerHTML = `
+    <div class="detail-meta">
+      <strong>対象期間：</strong>${from} 〜 ${to}<br>
+      <strong>対象タスク：</strong>${checkedTasks.join('、')}
+    </div>
+  `;
+  
+  const tbl = document.getElementById('detail-table');
+  tbl.innerHTML = `
+    <thead><tr>
+      <th>日付</th>
+      <th>タスク</th>
+      <th>予定</th>
+      <th>実績</th>
+      <th>継続</th>
+      <th>メモ</th>
+    </tr></thead>
+    <tbody>
+    ${filtered.map(r => `<tr>
+      <td>${r.date.slice(5)}</td>
+      <td style="text-align:left;">${r.task}</td>
+      <td>${r.planHours||'—'}</td>
+      <td>${r.actualHours||'—'}</td>
+      <td>${r.continued ? '✓' : ''}</td>
+      <td style="text-align:left;font-size:11px;color:var(--text2);">${r.memo||''}</td>
+    </tr>`).join('')}
+    </tbody>
+    <tfoot>
+    <tr class="stats-total"><td colspan="2">合計</td><td>${totalPlan.toFixed(1)}</td><td>${totalActual.toFixed(1)}</td><td colspan="2"></td></tr>
+    </tfoot>
+  `;
+  
+  switchPage('detail');
+}
+
+function downloadCSV() {
+  const from = document.getElementById('stats-from').value;
+  const to = document.getElementById('stats-to').value;
+  const rows = [['日付','タスク','予定時間','実績時間','継続','メモ']];
+  statsData.forEach(r => rows.push([r.date, r.task, r.planHours, r.actualHours, r.continued?'1':'0', r.memo||'']));
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8'});
+  downloadBlob(blob, `tasks_${from}_${to}.csv`);
+}
+
+function downloadJSON() {
+  const from = document.getElementById('stats-from').value;
+  const to = document.getElementById('stats-to').value;
+  const blob = new Blob([JSON.stringify(statsData, null, 2)], {type:'application/json'});
+  downloadBlob(blob, `tasks_${from}_${to}.json`);
+}
+
+function downloadBlob(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Navigation
+function switchPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  const navBtn = document.getElementById('nav-'+name);
+  if (navBtn) navBtn.classList.add('active');
+  
+  if (name === 'stats') {
+    const statsFrom = document.getElementById('stats-from');
+    const statsTo = document.getElementById('stats-to');
+    if (!statsFrom.value) {
+      const d = new Date();
+      d.setFullYear(d.getFullYear()-1);
+      statsFrom.value = d.toISOString().split('T')[0];
+      statsTo.value = todayStr();
+    }
+  }
+}
+
+// Init
+(async () => {
+  await initDB();
+  await loadDate(todayStr());
+})();
+</script>
+</body>
+</html>
