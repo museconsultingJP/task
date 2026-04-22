@@ -56,7 +56,7 @@
   .date-nav-row { display: flex; align-items: center; justify-content: space-between; }
   .date-display { font-size: 16px; font-weight: 600; color: var(--text); text-align: center; flex: 1; }
   .date-sub { font-size: 12px; color: var(--text3); text-align: center; margin-top: 2px; }
-  .date-btn { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface2); color: var(--text2); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s; flex-shrink: 0; }
+  .date-btn { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface2); color: var(--text2); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s; flex-shrink: 0; font-size: 22px; line-height: 1; font-family: var(--font); }
   .date-btn:active { background: var(--border); transform: scale(0.95); }
   .today-btn { font-size: 12px; font-weight: 500; color: var(--accent); background: var(--accent-light); border: 1px solid rgba(45,106,79,0.2); border-radius: 20px; padding: 6px 14px; cursor: pointer; white-space: nowrap; margin-left: 8px; }
   .today-btn:active { opacity: 0.7; }
@@ -178,18 +178,13 @@
   
   <div class="date-nav">
     <div class="date-nav-row">
-      <button class="date-btn" onclick="changeDate(-1)">
-        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>
-      </button>
-      <div style="flex:1; text-align:center; cursor:pointer;" onclick="openDatePicker()">
+      <button class="date-btn" id="btn-prev" type="button">&#8249;</button>
+      <label for="date-picker" style="flex:1; text-align:center; cursor:pointer; display:block;">
         <div class="date-display" id="date-display">2026/04/22</div>
         <div class="date-sub" id="date-sub">水曜日</div>
-      </div>
-      <input type="date" id="date-picker" class="date-input" onchange="onDatePicked(this.value)">
-      <button class="date-btn" onclick="changeDate(1)">
-        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9,6 15,12 9,18"/></svg>
-      </button>
-      <button class="today-btn" onclick="goToday()">今日</button>
+      </label>
+      <button class="date-btn" id="btn-next" type="button">&#8250;</button>
+      <button class="today-btn" id="btn-today" type="button">今日</button>
     </div>
   </div>
   
@@ -294,20 +289,17 @@
 </nav>
 
 <div class="toast" id="toast"></div>
+<input type="date" id="date-picker" style="position:fixed;top:-200px;left:-200px;width:1px;height:1px;opacity:0;pointer-events:none;">
+<datalist id="task-suggestions"></datalist>
 
 <script>
-const TIME_OPTIONS = ['0.25','0.5','0.75','1','1.5','2','3','4','5','6','7','8'];
+const TIME_OPTIONS = ['0','0.25','0.5','0.75','1','1.5','2','3','4','5','6','7','8'];
 const DAYS_JA = ['日','月','火','水','木','金','土'];
 
 let currentDate = todayStr();
 let db;
 let statsData = [];
 let checkedTasks = [];
-
-function todayStr() {
-  const d = new Date();
-  return d.toISOString().split('T')[0];
-}
 
 function formatDateDisplay(str) {
   const [y,m,d] = str.split('-');
@@ -447,7 +439,7 @@ function addRow(data) {
   const tr = document.createElement('tr');
   tr.dataset.rowId = rowId;
   tr.innerHTML = `
-    <td><input type="text" placeholder="タスク名" value="${(d.task||'').replace(/"/g,'&quot;')}" oninput="onTaskInput(this)"></td>
+    <td><input type="text" list="task-suggestions" placeholder="タスク名" value="${(d.task||'').replace(/"/g,'&quot;')}" oninput="onTaskInput(this)"></td>
     <td class="time-cell">${buildTimeSelect(d.planHours)}</td>
     <td class="time-cell">${buildTimeSelect(d.actualHours)}</td>
     <td class="check-cell"><input type="checkbox" ${d.continued?'checked':''}></td>
@@ -556,13 +548,29 @@ async function saveRecords() {
   if (records.length > 0) await dbPutAll(records);
   const memo = document.getElementById('day-memo').value.trim();
   await dbPutMemo(currentDate, memo);
+  await refreshSuggestions();
   showToast('保存しました ✓');
 }
 
+function addDays(dateStr, delta) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(y, m - 1, d + delta);
+  const ny = dt.getFullYear();
+  const nm = String(dt.getMonth() + 1).padStart(2, '0');
+  const nd = String(dt.getDate()).padStart(2, '0');
+  return `${ny}-${nm}-${nd}`;
+}
+
 function changeDate(delta) {
-  const d = new Date(currentDate + 'T00:00:00');
-  d.setDate(d.getDate() + delta);
-  loadDate(d.toISOString().split('T')[0]);
+  loadDate(addDays(currentDate, delta));
+}
+
+function todayStr() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 function goToday() { loadDate(todayStr()); }
@@ -570,13 +578,22 @@ function goToday() { loadDate(todayStr()); }
 function openDatePicker() {
   const picker = document.getElementById('date-picker');
   picker.value = currentDate;
-  picker.showPicker?.() || picker.click();
+  try { picker.showPicker(); } catch(e) { picker.click(); }
 }
 
 function onDatePicked(val) { if(val) loadDate(val); }
 
+let allTaskNames = [];
+async function refreshSuggestions() {
+  const data = await dbGetRange('2000-01-01', '2099-12-31');
+  const names = [...new Set(data.map(r => r.task).filter(Boolean))];
+  allTaskNames = names;
+  const dl = document.getElementById('task-suggestions');
+  dl.innerHTML = names.map(n => `<option value="${n.replace(/"/g,'&quot;')}">`).join('');
+}
+
 function onTaskInput(inp) {
-  // Future: show suggestions from past tasks
+  // datalist handles native suggestions; nothing extra needed
 }
 
 // Stats page
@@ -740,6 +757,12 @@ function switchPage(name) {
 (async () => {
   await initDB();
   await loadDate(todayStr());
+  await refreshSuggestions();
+
+  document.getElementById('btn-prev').addEventListener('click', (e) => { e.stopPropagation(); changeDate(-1); });
+  document.getElementById('btn-next').addEventListener('click', (e) => { e.stopPropagation(); changeDate(1); });
+  document.getElementById('btn-today').addEventListener('click', (e) => { e.stopPropagation(); goToday(); });
+  document.getElementById('date-picker').addEventListener('change', e => { if(e.target.value) loadDate(e.target.value); });
 })();
 </script>
 </body>
